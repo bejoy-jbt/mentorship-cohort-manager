@@ -1,9 +1,10 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import api from '../../api/client';
+import { BackToTraineesLink } from '../../components/BackToTraineesLink';
 import { EmptyState } from '../../components/EmptyState';
-import { ArrowLeft, BookOpen, CalendarDays } from 'lucide-react';
+import { BookOpen, CalendarDays } from 'lucide-react';
 
 export function MentorPlan() {
   const [params] = useSearchParams();
@@ -40,7 +41,19 @@ export function MentorPlan() {
   }
 
   if (error || !plan) {
-    return <EmptyState icon={BookOpen} title="No training plan allocated" description="The cohort administrator has not applied a training plan yet." action={<Link to={cohortId ? `/mentor/dashboard?cohortId=${cohortId}` : '/mentor/dashboard'} className="text-xs font-bold text-emerald-700">← Back to cohort</Link>} />;
+    return (
+      <EmptyState
+        icon={BookOpen}
+        title="No training plan allocated"
+        description="The cohort administrator has not applied a training plan yet."
+        action={
+          <BackToTraineesLink
+            cohortId={cohortId}
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-900"
+          />
+        }
+      />
+    );
   }
 
   const weeks = plan.weeks || [];
@@ -51,9 +64,7 @@ export function MentorPlan() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-5 sm:px-6 lg:px-8">
-      <Link to={cohortId ? `/mentor/dashboard?cohortId=${cohortId}` : '/mentor/dashboard'} className="mb-4 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900">
-        <ArrowLeft className="h-4 w-4" /> Back to trainees
-      </Link>
+      <BackToTraineesLink cohortId={cohortId || plan?.cohortId} />
 
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-4">
         <div>

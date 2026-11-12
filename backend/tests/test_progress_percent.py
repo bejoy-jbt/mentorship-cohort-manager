@@ -35,10 +35,11 @@ async def test_progress_creation_and_percent_calculation(client, admin_headers, 
     fb_tpl_id = fb_res.json()["id"]
 
     # 2. Create Cohort and Configure
+    from datetime import date, timedelta
     c_res = await client.post("/api/cohorts", json={
         "name": "Progress Cohort",
-        "startDate": "2026-04-01",
-        "endDate": "2026-04-30",
+        "startDate": (date.today() + timedelta(days=1)).isoformat(),
+        "endDate": (date.today() + timedelta(days=30)).isoformat(),
         "nominatorIds": []
     }, headers=admin_headers)
     cohort_id = c_res.json()["id"]

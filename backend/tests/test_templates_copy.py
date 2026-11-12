@@ -39,11 +39,12 @@ async def test_template_copy_independence(client, admin_headers, test_db):
     feedback_tpl_id = feedback_tpl["id"]
 
     # 3. Create a cohort
+    from datetime import date, timedelta
     cohort_payload = {
         "name": "Spring 2026 Batch",
         "description": "Test Cohort",
-        "startDate": "2026-03-01",
-        "endDate": "2026-03-14",
+        "startDate": (date.today() + timedelta(days=1)).isoformat(),
+        "endDate": (date.today() + timedelta(days=15)).isoformat(),
         "nominatorIds": []
     }
     res = await client.post("/api/cohorts", json=cohort_payload, headers=admin_headers)

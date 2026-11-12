@@ -3,10 +3,11 @@ import pytest
 @pytest.mark.asyncio
 async def test_status_transitions_and_locking(client, admin_headers):
     # 1. Create a draft cohort
+    from datetime import date, timedelta
     c_res = await client.post("/api/cohorts", json={
         "name": "Locking Cohort",
-        "startDate": "2026-06-01",
-        "endDate": "2026-06-30",
+        "startDate": (date.today() + timedelta(days=1)).isoformat(),
+        "endDate": (date.today() + timedelta(days=30)).isoformat(),
         "nominatorIds": []
     }, headers=admin_headers)
     cohort_id = c_res.json()["id"]

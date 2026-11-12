@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, Clock3, MapPin, Video, Users, ChevronDown } from 'lucide-react';
 import api from '../../api/client';
+import { BackToTraineesLink } from '../../components/BackToTraineesLink';
 import { Modal } from '../../components/Modal';
 import { DataTable, PersonCell } from '../../components/DataTable';
 import { useToast } from '../../context/ToastContext';
@@ -106,6 +107,7 @@ export default function SessionHistory() {
 
   return (
     <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <BackToTraineesLink cohortId={cohortId} />
 
       {/* ── Page header ── */}
       <div className="flex items-center justify-between py-2 border-b border-slate-200 mb-0">

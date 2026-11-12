@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/client';
 import { useToast } from '../../context/ToastContext';
 import { Card } from '../../components/Card';
+import { BackToTraineesLink } from '../../components/BackToTraineesLink';
 import { Modal } from '../../components/Modal';
 import { DataTable, PersonCell } from '../../components/DataTable';
 import '../../styles/BatchManagement.css';
@@ -339,6 +340,7 @@ export default function BatchManagement() {
 
   return (
     <div className="batch-management-page">
+      <BackToTraineesLink cohortId={cohortId} />
       <div className="page-header">
         <h1>Batch Management</h1>
         <p>Organize trainees into groups for training</p>
@@ -364,8 +366,11 @@ export default function BatchManagement() {
               id="cohort-select"
               value={cohortId}
               onChange={(e) => {
+                const next = new URLSearchParams(searchParams);
+                if (e.target.value) next.set('cohortId', e.target.value);
+                else next.delete('cohortId');
                 setCohortId(e.target.value);
-                setSearchParams(e.target.value ? { cohortId: e.target.value } : {});
+                setSearchParams(next);
                 setSelectedTraineeIds([]);
                 setTraineeSearch('');
                 setTraineeLocationFilter('');

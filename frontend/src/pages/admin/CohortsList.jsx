@@ -5,6 +5,13 @@ import api from '../../api/client';
 import { useToast } from '../../context/ToastContext';
 import { EmptyState } from '../../components/EmptyState';
 import { Modal } from '../../components/Modal';
+import { TalentNextCourseSelector } from '../../components/TalentNextCourseSelector';
+import {
+  addDaysToIsoDate,
+  formatDurationLabel,
+  getTodayDateString,
+  validateCohortDates,
+} from '../../utils/cohortDates';
 import { 
   PlusCircle,
   Edit3, Layers, BookOpen, MessageSquare, Plus, Trash2, 
@@ -27,7 +34,11 @@ export function CohortsList() {
   const [isCustomizingForm, setIsCustomizingForm] = useState(false);
   const [customForm, setCustomForm] = useState({ name: '', fields: [] });
   const [selectedTalentNextCourses, setSelectedTalentNextCourses] = useState([]);
-  const [talentNextSearch, setTalentNextSearch] = useState('');
+
+  const todayStr = getTodayDateString();
+  const dateValidation = validateCohortDates(startDate, endDate, {
+    requireFutureStart: !editingCohort,
+  });
 
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -105,21 +116,24 @@ export function CohortsList() {
     setName('');
     setDescription('');
     
-    // Default 4 weeks timeline
-    const today = new Date();
-    const fourWeeksLater = new Date();
-    fourWeeksLater.setDate(today.getDate() + 28);
-    setStartDate(today.toISOString().split('T')[0]);
-    setEndDate(fourWeeksLater.toISOString().split('T')[0]);
+    // Default 4 weeks timeline using local calendar date
+    const initialStart = getTodayDateString();
+    const initialEnd = addDaysToIsoDate(initialStart, 28);
+    setStartDate(initialStart);
+    setEndDate(initialEnd);
 
     // Select first training template by default if available
     if (trainingTemplates && trainingTemplates.length > 0) {
       const firstTpl = trainingTemplates[0];
       setSelectedTrainingTplId(firstTpl.id);
       setCustomPlan(JSON.parse(JSON.stringify(firstTpl)));
+      setSelectedTalentNextCourses(
+        firstTpl.talentnextCourses ? JSON.parse(JSON.stringify(firstTpl.talentnextCourses)) : []
+      );
     } else {
       setSelectedTrainingTplId('');
       setCustomPlan({ name: '', totalWeeks: 4, weeks: [] });
+      setSelectedTalentNextCourses([]);
     }
 
     // Select first feedback template by default if available
@@ -131,9 +145,6 @@ export function CohortsList() {
       setSelectedFeedbackTplId('');
       setCustomForm({ name: '', fields: [] });
     }
-
-    // Reset TalentNext courses selection
-    setSelectedTalentNextCourses([]);
 
     setIsCustomizingPlan(false);
     setIsCustomizingForm(false);
@@ -164,11 +175,15 @@ export function CohortsList() {
     setSelectedTrainingTplId(tplId);
     if (!tplId) {
       setCustomPlan({ name: '', totalWeeks: 0, weeks: [] });
+      setSelectedTalentNextCourses([]);
       return;
     }
     const tpl = trainingTemplates?.find((t) => t.id === tplId);
     if (tpl) {
       setCustomPlan(JSON.parse(JSON.stringify(tpl)));
+      setSelectedTalentNextCourses(
+        tpl.talentnextCourses ? JSON.parse(JSON.stringify(tpl.talentnextCourses)) : []
+      );
     }
   };
 
@@ -287,8 +302,15 @@ export function CohortsList() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!name || !startDate || !endDate) {
+    if (!name.trim() || !startDate || !endDate) {
       showToast('Please provide cohort name, start date, and end date', 'warning');
+      return;
+    }
+    if (!dateValidation.isValid) {
+      showToast(
+        dateValidation.startDateError || dateValidation.endDateError || 'Please fix the cohort dates',
+        'error'
+      );
       return;
     }
 
@@ -433,11 +455,15 @@ export function CohortsList() {
                 <Layers className="w-3.5 h-3.5 text-emerald-600" />
                 <span>1. Cohort Profile & Timeline</span>
               </span>
-              {startDate && endDate && (
-                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
-                  {Math.max(1, Math.round((new Date(endDate) - new Date(startDate)) / (7 * 24 * 3600 * 1000)))} Weeks Duration
-                </span>
-              )}
+              <span
+                className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
+                  dateValidation.durationWeeks
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-100'
+                    : 'text-slate-500 bg-slate-50 border-slate-200'
+                }`}
+              >
+                Duration: {formatDurationLabel(dateValidation.durationWeeks, 'Select valid dates')}
+              </span>
             </div>
 
             <div>
@@ -475,10 +501,21 @@ export function CohortsList() {
                 <input
                   type="date"
                   value={startDate}
+                  min={!editingCohort ? todayStr : undefined}
                   onChange={(e) => setStartDate(e.target.value)}
                   required
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-semibold"
+                  aria-invalid={Boolean(dateValidation.startDateError)}
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-2 text-xs font-semibold ${
+                    dateValidation.startDateError
+                      ? 'border-rose-400 focus:ring-rose-500'
+                      : 'border-slate-200 focus:ring-emerald-500'
+                  }`}
                 />
+                {dateValidation.startDateError && (
+                  <p className="mt-1 text-xs font-semibold text-rose-600" role="alert">
+                    {dateValidation.startDateError}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
@@ -487,11 +524,35 @@ export function CohortsList() {
                 <input
                   type="date"
                   value={endDate}
+                  min={startDate ? addDaysToIsoDate(startDate, 1) : !editingCohort ? addDaysToIsoDate(todayStr, 1) : undefined}
                   onChange={(e) => setEndDate(e.target.value)}
                   required
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs font-semibold"
+                  aria-invalid={Boolean(dateValidation.endDateError)}
+                  className={`w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring-2 text-xs font-semibold ${
+                    dateValidation.endDateError
+                      ? 'border-rose-400 focus:ring-rose-500'
+                      : 'border-slate-200 focus:ring-emerald-500'
+                  }`}
                 />
+                {dateValidation.endDateError && (
+                  <p className="mt-1 text-xs font-semibold text-rose-600" role="alert">
+                    {dateValidation.endDateError}
+                  </p>
+                )}
               </div>
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2 text-xs">
+              <span className="font-bold uppercase tracking-wider text-slate-600">
+                Cohort Duration
+              </span>
+              <span
+                className={`font-bold ${
+                  dateValidation.durationWeeks ? 'text-emerald-700' : 'text-slate-500'
+                }`}
+              >
+                {formatDurationLabel(dateValidation.durationWeeks, 'Enter valid start and end dates')}
+              </span>
             </div>
 
 
@@ -640,6 +701,16 @@ export function CohortsList() {
                   </div>
                 </div>
               )}
+
+              <TalentNextCourseSelector
+                catalog={talentnextCourses || []}
+                assignments={selectedTalentNextCourses}
+                onChange={(next) => {
+                  setSelectedTalentNextCourses(next);
+                  setCustomPlan((prev) => ({ ...prev, talentnextCourses: next }));
+                }}
+                subtitle="Selected TalentNext courses are assigned to this cohort when created."
+              />
             </div>
           )}
 
@@ -773,7 +844,7 @@ export function CohortsList() {
             </button>
             <button
               type="submit"
-              disabled={saveMutation.isPending}
+              disabled={saveMutation.isPending || !dateValidation.isValid}
               className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm disabled:opacity-50 flex items-center gap-1.5"
             >
               <Sparkles className="w-3.5 h-3.5" />

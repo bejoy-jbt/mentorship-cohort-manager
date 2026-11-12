@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import { Badge } from '../../components/Badge';
 import { EmptyState } from '../../components/EmptyState';
 import { Modal } from '../../components/Modal';
+import { TalentNextCourseSelector } from '../../components/TalentNextCourseSelector';
 import { 
   BookOpen, PlusCircle, Trash2, Clock, Layers, Plus, 
   ChevronDown, ChevronUp, Eye, Sparkles, Edit3
@@ -175,50 +176,11 @@ export function TrainingTemplates() {
   };
 
   const renderTalentNextEditor = (assignments, onChange) => (
-    <section className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/60 p-4">
-      <div>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">TalentNext courses</h3>
-        <p className="mt-1 text-xs text-slate-500">Selected courses are included when this training plan is applied to a cohort.</p>
-      </div>
-      {talentNextCatalog.length ? (
-        <div className="divide-y divide-amber-100 rounded-lg border border-amber-100 bg-white">
-          {talentNextCatalog.map((course) => {
-            const assignment = assignments.find((item) => item.courseId === course.id);
-            return (
-              <div key={course.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5">
-                <label className="flex min-w-0 items-center gap-2 text-xs font-medium text-slate-800">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(assignment)}
-                    onChange={(event) => {
-                      const next = event.target.checked
-                        ? [...assignments, { courseId: course.id, isMandatory: true }]
-                        : assignments.filter((item) => item.courseId !== course.id);
-                      onChange(next);
-                    }}
-                    className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                  />
-                  <span className="truncate">{course.name}</span>
-                </label>
-                {assignment && (
-                  <select
-                    aria-label={`${course.name} requirement`}
-                    value={assignment.isMandatory ? 'required' : 'optional'}
-                    onChange={(event) => onChange(assignments.map((item) => item.courseId === course.id
-                      ? { ...item, isMandatory: event.target.value === 'required' }
-                      : item))}
-                    className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700"
-                  >
-                    <option value="required">Required</option>
-                    <option value="optional">Optional</option>
-                  </select>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : <p className="rounded-lg border border-dashed border-amber-200 bg-white px-3 py-4 text-center text-xs text-slate-500">No TalentNext courses are available yet.</p>}
-    </section>
+    <TalentNextCourseSelector
+      catalog={talentNextCatalog}
+      assignments={assignments}
+      onChange={onChange}
+    />
   );
 
   return (

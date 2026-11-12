@@ -1,6 +1,15 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
+
+
+def _strip_required_employee_id(value: str) -> str:
+    if value is None:
+        raise ValueError("Employee ID is required")
+    trimmed = str(value).strip()
+    if not trimmed:
+        raise ValueError("Employee ID is required")
+    return trimmed
 
 class TraineeInMentor(BaseModel):
     id: str
@@ -23,6 +32,11 @@ class MentorNomineeCreate(BaseModel):
     timezone: Optional[str] = None
     experience: Optional[str] = None
     skills: Optional[List[str]] = []
+
+    @field_validator("employeeId", mode="before")
+    @classmethod
+    def validate_employee_id(cls, value: str) -> str:
+        return _strip_required_employee_id(value)
 
 class CohortRef(BaseModel):
     id: str
@@ -68,12 +82,17 @@ class MentorAssignCohortsRequest(BaseModel):
 class TraineeNomineeCreate(BaseModel):
     name: str
     email: EmailStr
-    employeeId: str
+    employeeId: str = Field(min_length=1, max_length=64)
     department: Optional[str] = ""
     location: Optional[str] = None
     timezone: Optional[str] = None
     experience: Optional[str] = None
     skills: Optional[List[str]] = []
+
+    @field_validator("employeeId", mode="before")
+    @classmethod
+    def validate_employee_id(cls, value: str) -> str:
+        return _strip_required_employee_id(value)
 
 class TraineeNomineeResponse(BaseModel):
     """Trainee as seen by admin / inside a cohort."""

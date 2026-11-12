@@ -5,6 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.core.db import get_database
 from app.core.deps import require_admin, require_nominator, require_any_authenticated, ensure_mentor_cohort_access
 from app.services.nomination_service import NominationService
+from app.services.identity_service import is_employee_id_taken
 from app.schemas.nominees import (
     MentorNomineeCreate, MentorNomineeResponse, MyNomineeResponse,
     TraineeNomineeCreate, TraineeNomineeResponse, AllocateRequest,
@@ -38,6 +39,18 @@ async def nominate_trainee(
 ):
     """Nominate a trainee. No cohort is involved; an admin adds nominees to cohorts."""
     return await NominationService.nominate_trainee(db, data, current_user)
+
+
+@router.get("/nominations/check-employee-id")
+async def check_employee_id_availability(
+    employeeId: str = Query(..., min_length=1),
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user: dict = Depends(require_nominator),
+):
+    """Check whether an Employee ID is already registered anywhere in the portal."""
+    trimmed = employeeId.strip()
+    exists = await is_employee_id_taken(db, trimmed) if trimmed else False
+    return {"employeeId": trimmed, "exists": exists}
 
 
 @router.get("/nominations/mine/mentors", response_model=PaginatedResponse[MyNomineeResponse])

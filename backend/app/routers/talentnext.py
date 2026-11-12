@@ -23,7 +23,12 @@ async def create_course(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
 
     service = TalentNextService(db)
-    course = await service.create(payload.name)
+    course = await service.create(
+        payload.name,
+        description=payload.description,
+        course_url=payload.courseUrl,
+        duration_hrs=payload.durationHrs,
+    )
     return course
 
 
@@ -57,7 +62,13 @@ async def update_course(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
 
     service = TalentNextService(db)
-    course = await service.update(course_id, payload.name)
+    course = await service.update(
+        course_id,
+        name=payload.name,
+        description=payload.description,
+        course_url=payload.courseUrl,
+        duration_hrs=payload.durationHrs,
+    )
     if not course:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
     return course

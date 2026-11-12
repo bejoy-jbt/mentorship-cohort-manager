@@ -4,6 +4,7 @@ from typing import List, Optional
 from bson import ObjectId
 from fastapi import HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo.errors import DuplicateKeyError
 from app.core.security import get_password_hash, generate_temporary_password
 from app.schemas.nominees import MentorNomineeCreate, TraineeNomineeCreate
 from app.services.identity_service import claim_person_identity, release_person_identity
@@ -96,6 +97,20 @@ class NominationService:
         doc["_id"] = profile_id
         try:
             await db[KIND_COLLECTION[kind]].insert_one(doc)
+        except DuplicateKeyError as exc:
+            await release_person_identity(db, str(profile_id))
+            key_pattern = (exc.details or {}).get("keyPattern") or {}
+            if "employeeId" in key_pattern:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Employee ID {doc['employeeId']} already exists. Please use a unique Employee ID.",
+                    headers={"code": "EMPLOYEE_ID_EXISTS"},
+                )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This trainee or mentor record already exists.",
+                headers={"code": "DUPLICATE_NOMINEE"},
+            )
         except Exception:
             await release_person_identity(db, str(profile_id))
             raise

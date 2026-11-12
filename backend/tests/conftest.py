@@ -21,7 +21,9 @@ async def test_db():
         "users", "cohorts", "mentors", "trainees",
         "trainingTemplates", "cohortTrainingPlans",
         "feedbackTemplates", "cohortFeedbackForms",
-        "progress", "feedbackResponses"
+        "progress", "feedbackResponses",
+        "personIdentityClaims", "talentnextCourses",
+        "batches", "sessions", "attendance",
     ]
     for col in collections:
         await db[col].delete_many({})

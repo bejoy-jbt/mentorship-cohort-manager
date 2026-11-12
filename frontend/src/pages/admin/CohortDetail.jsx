@@ -10,6 +10,7 @@ import { EmptyState } from '../../components/EmptyState';
 import { Modal } from '../../components/Modal';
 import { DataTable, PersonCell } from '../../components/DataTable';
 import { AllocateNomineesModal } from '../../components/AllocateNomineesModal';
+import { addDaysToIsoDate, validateCohortDates } from '../../utils/cohortDates';
 import { 
   ArrowLeft, Calendar, Award, Users, Settings, UserPlus, 
   KeyRound, CheckCircle2, Lock, Sparkles, BookOpen, Check,
@@ -1753,6 +1754,15 @@ export function CohortDetail() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            if (newEndDateExtend && cohort?.startDate) {
+              const check = validateCohortDates(cohort.startDate, newEndDateExtend, {
+                requireFutureStart: false,
+              });
+              if (!check.isValid) {
+                showToast(check.endDateError || check.startDateError, 'error');
+                return;
+              }
+            }
             extendWeeksMutation.mutate({
               additionalWeeks: parseInt(additionalWeeksCount, 10),
               newEndDate: newEndDateExtend || undefined,
@@ -1780,9 +1790,7 @@ export function CohortDetail() {
                   type="button"
                   onClick={() => {
                     setAdditionalWeeksCount(count);
-                    const baseDate = new Date(cohort.endDate);
-                    baseDate.setDate(baseDate.getDate() + count * 7);
-                    setNewEndDateExtend(baseDate.toISOString().split('T')[0]);
+                    setNewEndDateExtend(addDaysToIsoDate(cohort.endDate, count * 7));
                   }}
                   className={`py-2 text-xs font-bold rounded-xl border text-center transition-all ${
                     additionalWeeksCount === count
@@ -1803,6 +1811,7 @@ export function CohortDetail() {
             <input
               type="date"
               value={newEndDateExtend}
+              min={cohort?.startDate ? addDaysToIsoDate(cohort.startDate, 1) : undefined}
               onChange={(e) => setNewEndDateExtend(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />

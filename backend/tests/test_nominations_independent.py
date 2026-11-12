@@ -3,8 +3,11 @@ import pytest
 
 
 async def _make_cohort(client, admin_headers, name="Cohort One"):
+    from datetime import date, timedelta
     res = await client.post("/api/cohorts", json={
-        "name": name, "startDate": "2026-05-01", "endDate": "2026-05-31",
+        "name": name,
+        "startDate": (date.today() + timedelta(days=1)).isoformat(),
+        "endDate": (date.today() + timedelta(days=30)).isoformat(),
     }, headers=admin_headers)
     assert res.status_code == 200
     return res.json()["id"]

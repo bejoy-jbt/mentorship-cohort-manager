@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserPlus } from 'lucide-react';
+import api from '../api/client';
 import { cities, timezonesByCountry } from '../data/cities';
 
 const inputClass =
@@ -16,18 +17,82 @@ export function NomineeForm({ kind, onSubmit, isPending = false }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [employeeId, setEmployeeId] = useState('');
+  const [employeeIdError, setEmployeeIdError] = useState('');
+  const [isCheckingEmployeeId, setIsCheckingEmployeeId] = useState(false);
   const [location, setLocation] = useState('');
   const [timezone, setTimezone] = useState('');
 
   const selectedCity = cities.find(({ city, country }) => location === `${city}, ${country}`);
   const timezoneOptions = selectedCity ? timezonesByCountry[selectedCity.country] : [];
 
+  useEffect(() => {
+    const trimmed = employeeId.trim();
+    if (!trimmed) {
+      setEmployeeIdError('');
+      setIsCheckingEmployeeId(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsCheckingEmployeeId(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get('/nominations/check-employee-id', {
+          params: { employeeId: trimmed },
+        });
+        if (!cancelled) {
+          setEmployeeIdError(
+            res.data?.exists
+              ? `Employee ID ${trimmed} already exists. Please use a unique Employee ID.`
+              : ''
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setEmployeeIdError('');
+        }
+      } finally {
+        if (!cancelled) {
+          setIsCheckingEmployeeId(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [employeeId]);
+
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const trimmedEmployeeId = employeeId.trim();
+    if (!trimmedEmployeeId) {
+      setEmployeeIdError('Employee ID is required.');
+      return;
+    }
+
+    setIsCheckingEmployeeId(true);
+    try {
+      const checkRes = await api.get('/nominations/check-employee-id', {
+        params: { employeeId: trimmedEmployeeId },
+      });
+      if (checkRes.data?.exists) {
+        setEmployeeIdError(
+          `Employee ID ${trimmedEmployeeId} already exists. Please use a unique Employee ID.`
+        );
+        return;
+      }
+    } catch {
+      // Backend POST validation still enforces uniqueness if pre-check fails.
+    } finally {
+      setIsCheckingEmployeeId(false);
+    }
+
     const payload = {
       name: name.trim(),
       email: email.trim(),
-      employeeId: employeeId.trim(),
+      employeeId: trimmedEmployeeId,
       location: location || null,
       timezone: timezone || null,
     };
@@ -36,9 +101,17 @@ export function NomineeForm({ kind, onSubmit, isPending = false }) {
       setName('');
       setEmail('');
       setEmployeeId('');
+      setEmployeeIdError('');
       setLocation('');
       setTimezone('');
-    } catch {
+    } catch (err) {
+      const detail = err?.response?.data?.detail || '';
+      if (
+        err?.response?.status === 409 &&
+        detail.toLowerCase().includes('employee id')
+      ) {
+        setEmployeeIdError(detail);
+      }
       // the parent shows the error toast; keep the typed values so nothing is lost
     }
   };
@@ -55,7 +128,24 @@ export function NomineeForm({ kind, onSubmit, isPending = false }) {
       </div>
       <div>
         <label className={labelClass}>Employee ID</label>
-        <input required value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} placeholder="EMP-305" className={inputClass} />
+        <input
+          required
+          value={employeeId}
+          onChange={(e) => {
+            setEmployeeId(e.target.value);
+            if (employeeIdError) setEmployeeIdError('');
+          }}
+          placeholder="EMP-305"
+          aria-invalid={Boolean(employeeIdError)}
+          className={`${inputClass} ${
+            employeeIdError ? 'border-rose-400 focus:ring-rose-500' : ''
+          }`}
+        />
+        {employeeIdError && (
+          <p className="mt-1 text-xs font-semibold text-rose-600" role="alert">
+            {employeeIdError}
+          </p>
+        )}
       </div>
       <div>
         <label className={labelClass}>Location{isTrainee ? '' : ' (optional)'}</label>
@@ -97,7 +187,7 @@ export function NomineeForm({ kind, onSubmit, isPending = false }) {
       </div>
       <button
         type="submit"
-        disabled={isPending}
+        disabled={isPending || isCheckingEmployeeId || Boolean(employeeIdError)}
         className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center justify-center gap-1.5 disabled:opacity-50 transition-all"
       >
         <UserPlus className="w-4 h-4" />

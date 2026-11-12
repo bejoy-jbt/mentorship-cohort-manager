@@ -22,10 +22,11 @@ async def test_feedback_validation(client, admin_headers, mentor_headers, mentor
     f_id = fb_res.json()["id"]
 
     # 2. Setup cohort and link mentor & trainee
+    from datetime import date, timedelta
     c_res = await client.post("/api/cohorts", json={
         "name": "Feedback Cohort",
-        "startDate": "2026-07-01",
-        "endDate": "2026-07-31",
+        "startDate": (date.today() + timedelta(days=1)).isoformat(),
+        "endDate": (date.today() + timedelta(days=30)).isoformat(),
         "nominatorIds": []
     }, headers=admin_headers)
     cohort_id = c_res.json()["id"]

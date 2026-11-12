@@ -1,5 +1,9 @@
+from datetime import date, timedelta
 import pytest
 from bson import ObjectId
+
+START_DATE = (date.today() + timedelta(days=1)).isoformat()
+END_DATE = (date.today() + timedelta(days=30)).isoformat()
 
 
 @pytest.mark.asyncio
@@ -15,8 +19,8 @@ async def test_role_based_access_control(
     # 2. Nominator cannot create a cohort (admin only)
     c_nom_res = await client.post("/api/cohorts", json={
         "name": "Nominator Cohort",
-        "startDate": "2026-05-01",
-        "endDate": "2026-05-31",
+        "startDate": START_DATE,
+        "endDate": END_DATE,
     }, headers=nominator_headers)
     assert c_nom_res.status_code == 403
     assert c_nom_res.json()["code"] == "FORBIDDEN"
@@ -24,8 +28,8 @@ async def test_role_based_access_control(
     # 3. Admin creates a cohort
     c_a_res = await client.post("/api/cohorts", json={
         "name": "Cohort A",
-        "startDate": "2026-05-01",
-        "endDate": "2026-05-31",
+        "startDate": START_DATE,
+        "endDate": END_DATE,
     }, headers=admin_headers)
     assert c_a_res.status_code == 200
     cohort_a_id = c_a_res.json()["id"]

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from bson import ObjectId
 from fastapi import HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -6,6 +6,45 @@ from app.schemas.cohorts import (
     CohortCreate, CohortUpdate, CohortStatus, CohortConfigureRequest,
     ExtendTimelineRequest, UpdatePlanRequest, UpdateFeedbackFormRequest
 )
+
+
+def _parse_iso_date(value: str, field_label: str) -> date:
+    """Parse a strict YYYY-MM-DD date string."""
+    raw = (value or "").strip()
+    if not raw:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{field_label} is required",
+            headers={"code": "INVALID_COHORT_DATES"},
+        )
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"{field_label} must be in YYYY-MM-DD format",
+            headers={"code": "INVALID_COHORT_DATES"},
+        )
+
+
+def validate_cohort_dates(start_str: str, end_str: str, *, require_future_start: bool) -> tuple[str, str]:
+    """Validate cohort start/end dates and return normalized YYYY-MM-DD strings."""
+    start_dt = _parse_iso_date(start_str, "Start date")
+    end_dt = _parse_iso_date(end_str, "End date")
+    if require_future_start and start_dt < date.today():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Start date cannot be in the past when creating a new cohort",
+            headers={"code": "INVALID_COHORT_DATES"},
+        )
+    if end_dt <= start_dt:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="End date must be later than start date",
+            headers={"code": "INVALID_COHORT_DATES"},
+        )
+    return start_dt.isoformat(), end_dt.isoformat()
+
 
 class CohortService:
     @staticmethod
@@ -65,7 +104,13 @@ class CohortService:
 
     @staticmethod
     async def create_cohort(db: AsyncIOMotorDatabase, data: CohortCreate, created_by: str) -> dict:
+        normalized_start, normalized_end = validate_cohort_dates(
+            data.startDate, data.endDate, require_future_start=True
+        )
         raw_data = data.model_dump()
+        raw_data["startDate"] = normalized_start
+        raw_data["endDate"] = normalized_end
+        talentnext_explicitly_set = "talentnextCourses" in data.model_fields_set
         training_tpl_id = raw_data.pop("trainingTemplateId", None)
         feedback_tpl_id = raw_data.pop("feedbackTemplateId", None)
         custom_plan = raw_data.pop("customTrainingPlan", None)
@@ -118,8 +163,9 @@ class CohortService:
         elif training_tpl_id:
             tpl = await db.trainingTemplates.find_one({"_id": ObjectId(training_tpl_id)})
             if tpl:
-                # Template-level TalentNext assignments become the cohort's assigned courses.
-                raw_data["talentnextCourses"] = tpl.get("talentnextCourses", raw_data.get("talentnextCourses", []))
+                # Preserve explicitly provided TalentNext selections; otherwise inherit template defaults.
+                if not talentnext_explicitly_set:
+                    raw_data["talentnextCourses"] = tpl.get("talentnextCourses", [])
                 await db.cohorts.update_one(
                     {"_id": ObjectId(cohort_id)},
                     {"$set": {"talentnextCourses": raw_data["talentnextCourses"]}}
@@ -276,7 +322,18 @@ class CohortService:
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
         if not update_data:
             return cohort
-        
+
+        if "startDate" in update_data or "endDate" in update_data:
+            next_start = update_data.get("startDate", cohort.get("startDate", ""))
+            next_end = update_data.get("endDate", cohort.get("endDate", ""))
+            norm_start, norm_end = validate_cohort_dates(
+                next_start, next_end, require_future_start=False
+            )
+            if "startDate" in update_data:
+                update_data["startDate"] = norm_start
+            if "endDate" in update_data:
+                update_data["endDate"] = norm_end
+
         await db.cohorts.update_one(
             {"_id": ObjectId(cohort_id)},
             {"$set": update_data}
@@ -469,9 +526,12 @@ class CohortService:
         
         # 1. Update endDate if provided
         if req.newEndDate:
+            _, norm_end = validate_cohort_dates(
+                cohort.get("startDate", ""), req.newEndDate, require_future_start=False
+            )
             await db.cohorts.update_one(
                 {"_id": ObjectId(cohort_id)},
-                {"$set": {"endDate": req.newEndDate}}
+                {"$set": {"endDate": norm_end}}
             )
 
         # 2. Extend weeks in plan if plan exists
