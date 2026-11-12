@@ -96,10 +96,11 @@ export function Nominations() {
 
   const toggleMentorMutation = useMutation({
     mutationFn: async ({ id, isActive }) => api.put(`/nominations/mentors/${id}/status`, { isActive }),
-    onSuccess: () => {
+    onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['adminNominees'] });
       queryClient.invalidateQueries({ queryKey: ['cohorts'] });
-      showToast('Mentor account status updated');
+      queryClient.invalidateQueries({ queryKey: ['cohortMentors'] });
+      showToast(`Mentor account ${variables.isActive ? 'activated' : 'deactivated'}`);
     },
     onError: (err) => showToast(err.response?.data?.detail || 'Could not update mentor account', 'error'),
   });
@@ -146,7 +147,7 @@ export function Nominations() {
     },
     {
       key: 'account', header: 'Global account', className: 'w-[9%]', headerClassName: 'w-[9%]',
-      render: (row) => <button type="button" onClick={() => toggleMentorMutation.mutate({ id: row.id, isActive: !row.isActive })} disabled={toggleMentorMutation.isPending} title={`Click to ${row.isActive ? 'deactivate' : 'activate'} globally`} className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${row.isActive ? 'bg-emerald-50 text-emerald-700 hover:bg-rose-50 hover:text-rose-700' : 'bg-rose-50 text-rose-700 hover:bg-emerald-50 hover:text-emerald-700'}`} aria-label={`${row.isActive ? 'Deactivate' : 'Activate'} mentor globally`}><span className={`h-1.5 w-1.5 rounded-full ${row.isActive ? 'bg-emerald-500' : 'bg-rose-500'}`} />{row.isActive ? 'Active' : 'Inactive'}</button>,
+      render: (row) => <button type="button" onClick={() => toggleMentorMutation.mutate({ id: row.id, isActive: !row.isActive })} disabled={toggleMentorMutation.isPending} title={`Click to ${row.isActive ? 'deactivate' : 'activate'} globally`} className={`inline-flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50 ${row.isActive ? 'bg-emerald-50 text-emerald-700 hover:bg-rose-50 hover:text-rose-700' : 'bg-rose-50 text-rose-700 hover:bg-emerald-50 hover:text-emerald-700'}`} aria-label={`${row.isActive ? 'Deactivate' : 'Activate'} mentor globally`}><span className={`h-1.5 w-1.5 rounded-full ${row.isActive ? 'bg-emerald-500' : 'bg-rose-500'}`} />{row.isActive ? 'Deactivate' : 'Activate'}</button>,
     },
     {
       key: 'actions', header: 'Manage', className: 'w-[7%]', headerClassName: 'w-[7%]',
@@ -192,7 +193,8 @@ export function Nominations() {
       (await api.put(`/admin/users/users/${userId}/${isActive ? 'activate' : 'deactivate'}`)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminNominators'] });
-      showToast('Account updated');
+      queryClient.invalidateQueries({ queryKey: ['nominatorsList'] });
+      showToast('Nominator account updated');
     },
     onError: (err) => showToast(err.response?.data?.detail || 'Failed to update account', 'error'),
   });
@@ -224,7 +226,7 @@ export function Nominations() {
       header: 'Account',
       render: (row) => (
         <Badge variant={!row.isActive || row.firstLoginPasswordReset ? 'draft' : 'active'}>
-          {!row.isActive ? 'Inactive' : row.firstLoginPasswordReset ? 'Password setup pending' : 'Active'}
+          {!row.isActive ? 'Deactivated' : row.firstLoginPasswordReset ? 'Password setup pending' : 'Active'}
         </Badge>
       ),
     },
@@ -243,14 +245,12 @@ export function Nominations() {
           </button>
           <button
             type="button"
-            role="switch"
-            aria-checked={row.isActive}
             aria-label={`${row.isActive ? 'Deactivate' : 'Activate'} nominator account`}
             onClick={() => toggleAccountMutation.mutate({ userId: row.id, isActive: !row.isActive })}
             disabled={toggleAccountMutation.isPending}
-            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${row.isActive ? 'bg-emerald-600' : 'bg-slate-300'}`}
+            className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors disabled:opacity-50 ${row.isActive ? 'bg-rose-50 text-rose-700 hover:bg-rose-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
           >
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${row.isActive ? 'translate-x-6' : 'translate-x-1'}`} />
+            {row.isActive ? 'Deactivate' : 'Activate'}
           </button>
         </div>
       ),
@@ -413,7 +413,7 @@ export function Nominations() {
 
       <Modal isOpen={!!selectedNominatorId} onClose={() => setSelectedNominatorId(null)} title={`Nominator details · ${nominatorDetails?.nominator?.name || ''}`} maxWidth="max-w-5xl">
         {detailsLoading ? <p className="py-10 text-center text-sm text-slate-500">Loading nominations…</p> : <div className="space-y-4">
-          <div className="grid gap-3 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-3"><div><span className="text-slate-500">Employee ID</span><p className="font-semibold">{nominatorDetails?.nominator?.employeeId || '—'}</p></div><div><span className="text-slate-500">Email</span><p className="font-semibold">{nominatorDetails?.nominator?.email || '—'}</p></div><div><span className="text-slate-500">Account</span><p className={`font-semibold ${nominatorDetails?.nominator?.isActive ? 'text-emerald-700' : 'text-rose-700'}`}>{nominatorDetails?.nominator?.isActive ? 'Active' : 'Inactive'}</p></div></div>
+          <div className="grid gap-3 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-3"><div><span className="text-slate-500">Employee ID</span><p className="font-semibold">{nominatorDetails?.nominator?.employeeId || '—'}</p></div><div><span className="text-slate-500">Email</span><p className="font-semibold">{nominatorDetails?.nominator?.email || '—'}</p></div><div><span className="text-slate-500">Account</span><p className={`font-semibold ${nominatorDetails?.nominator?.isActive ? 'text-emerald-700' : 'text-rose-700'}`}>{nominatorDetails?.nominator?.isActive ? 'Active' : 'Deactivated'}</p></div></div>
           <div className="flex gap-4 border-b border-slate-200">{['mentors','trainees'].map((tab) => <button key={tab} onClick={() => setDetailsTab(tab)} className={`pb-2 text-sm font-semibold capitalize ${detailsTab === tab ? 'border-b-2 border-emerald-600 text-emerald-700' : 'text-slate-500'}`}>{tab} ({nominatorDetails?.[tab]?.length || 0})</button>)}</div>
           {(nominatorDetails?.[detailsTab] || []).length ? <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-[11px] uppercase text-slate-500"><tr><th className="p-3">Name / email</th><th className="p-3">Employee ID</th><th className="p-3">Location</th><th className="p-3">Nominated</th><th className="p-3">Assignment status</th><th className="p-3">Cohort(s)</th></tr></thead><tbody className="divide-y divide-slate-100">{nominatorDetails[detailsTab].map((person) => <tr key={person.id}><td className="p-3 font-medium">{person.name}<div className="text-xs text-slate-500">{person.email}</div></td><td className="p-3">{person.employeeId || '—'}</td><td className="p-3">{person.location || '—'}</td><td className="p-3">{formatDate(person.createdAt)}</td><td className="p-3">{detailsTab === 'mentors' ? (person.assignedCohorts?.length ? 'Assigned' : 'Not assigned') : (person.cohortName ? 'Assigned' : 'Not assigned')}</td><td className="p-3">{detailsTab === 'mentors' ? (person.assignedCohorts?.join(', ') || '—') : (person.cohortName || '—')}</td></tr>)}</tbody></table></div> : <p className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-sm text-slate-500">This nominator has not nominated any mentors or trainees yet.</p>}
         </div>}

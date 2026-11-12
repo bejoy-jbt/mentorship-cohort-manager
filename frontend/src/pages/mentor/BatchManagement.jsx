@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/client';
 import { useToast } from '../../context/ToastContext';
 import { Card } from '../../components/Card';
 import { Modal } from '../../components/Modal';
 import { DataTable, PersonCell } from '../../components/DataTable';
+import { ArrowLeft } from 'lucide-react';
 import '../../styles/BatchManagement.css';
 
 const MISSING_LOCATION = '__missing_location__';
@@ -339,6 +340,12 @@ export default function BatchManagement() {
 
   return (
     <div className="batch-management-page">
+      <Link
+        to={cohortId ? `/mentor/dashboard?cohortId=${encodeURIComponent(cohortId)}` : '/mentor/dashboard'}
+        className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-slate-900"
+      >
+        <ArrowLeft className="h-4 w-4" /> Back to trainees
+      </Link>
       <div className="page-header">
         <h1>Batch Management</h1>
         <p>Organize trainees into groups for training</p>

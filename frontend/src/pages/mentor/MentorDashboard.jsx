@@ -5,6 +5,7 @@ import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { EmptyState } from '../../components/EmptyState';
 import { ArrowLeft, ArrowRight, BookOpen, CalendarDays, Users } from 'lucide-react';
+import { requireArrayResponse, unwrapArrayResponse } from '../../utils/arrayResponse';
 
 const dateLabel = (value) => value ? new Date(value).toLocaleDateString() : '—';
 
@@ -12,9 +13,10 @@ export function MentorDashboard() {
   const { user } = useAuth();
   const [params] = useSearchParams();
   const cohortId = params.get('cohortId');
-  const { data: cohorts = [], isLoading: cohortsLoading } = useQuery({
-    queryKey: ['mentorCohorts'], queryFn: async () => (await api.get('/mentor/cohorts')).data || [],
+  const { data: cohortResponse = [], isLoading: cohortsLoading } = useQuery({
+    queryKey: ['mentorCohorts'], queryFn: async () => requireArrayResponse((await api.get('/mentor/cohorts')).data, 'cohorts'),
   });
+  const cohorts = unwrapArrayResponse(cohortResponse, 'cohorts') || [];
   const selectedCohort = cohorts.find((cohort) => cohort.id === cohortId && cohort.accessActive !== false);
   const { data: dashboardData, isLoading } = useQuery({
     queryKey: ['mentorDashboard', cohortId],

@@ -418,6 +418,7 @@ export function CohortDetail() {
     },
     onSuccess: (_result, variables) => {
       queryClient.invalidateQueries({ queryKey: ['adminNominators'] });
+      queryClient.invalidateQueries({ queryKey: ['nominatorsList'] });
       setSelectedNominatorDetails((current) => current ? { ...current, isActive: variables.isActive } : current);
       showToast(`Nominator account ${variables.isActive ? 'activated' : 'deactivated'}`);
     },
@@ -899,6 +900,7 @@ export function CohortDetail() {
           ) : (
             <div className="divide-y divide-slate-200 border-y border-slate-200">
               {filteredMentors.map((mentor) => {
+                const isMentorGloballyDeactivated = mentor.isActive === false || mentor.isAccountActive === false;
                 const assignedTrainees = mentor.assignedTrainees || [];
                 const activeAssignedTrainees = assignedTrainees.filter((trainee) => trainee.status !== 'dropped_out');
                 const droppedOutAssignedTrainees = assignedTrainees.length - activeAssignedTrainees.length;
@@ -915,6 +917,7 @@ export function CohortDetail() {
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                           <h4 className="font-bold text-sm text-slate-900">{mentor.name}</h4>
                           {mentor.employeeId && <span className="font-mono text-[10px] text-slate-500">{mentor.employeeId}</span>}
+                          {isMentorGloballyDeactivated && <Badge variant="danger" size="sm">Globally deactivated</Badge>}
                         </div>
                         <p className="truncate text-xs text-slate-500">{mentor.email}</p>
                       </div>
@@ -932,7 +935,7 @@ export function CohortDetail() {
                             disabled={toggleAccountMutation.isPending}
                             className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold disabled:cursor-wait disabled:opacity-50 ${mentor.isCohortAccessActive ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'}`}
                             title={`Click to ${mentor.isCohortAccessActive ? 'deactivate' : 'activate'} access in this cohort`}
-                          >Cohort {mentor.isCohortAccessActive ? 'Active' : 'Inactive'}</button>
+                          >{mentor.isCohortAccessActive ? 'Deactivate for this cohort' : 'Activate for this cohort'}</button>
                         ) : (
                           <button
                             type="button"
@@ -1138,10 +1141,13 @@ export function CohortDetail() {
                         fullScreen
                       >
                         <div className="space-y-5">
+                          {isMentorGloballyDeactivated && (
+                            <Badge variant="danger" size="sm">Globally deactivated</Badge>
+                          )}
                           <section className="grid grid-cols-2 gap-x-6 gap-y-3 border-y border-slate-200 py-3 text-sm xl:grid-cols-5">
                             <div><span className="text-slate-500">Employee ID</span><p className="font-semibold text-slate-800">{mentor.employeeId || 'Not provided'}</p></div>
                             <div><span className="text-slate-500">Email</span><p className="font-semibold text-slate-800">{mentor.email}</p></div>
-                            <div><span className="text-slate-500">Login</span><p className="font-semibold text-slate-800">{!mentor.isLoginActive ? 'Not activated' : !mentor.isAccountActive ? 'Inactive' : mentor.firstLoginPasswordReset ? 'Password setup pending' : 'Active'}</p></div>
+                            <div><span className="text-slate-500">Login</span><p className="font-semibold text-slate-800">{!mentor.isLoginActive ? 'Not activated' : isMentorGloballyDeactivated ? 'Deactivated' : mentor.firstLoginPasswordReset ? 'Password setup pending' : 'Active'}</p></div>
                             <div><span className="text-slate-500">Nominated by</span><p className="font-semibold text-slate-800">{mentor.nominatorName || 'Platform Administrator'}</p></div>
                             <div><span className="text-slate-500">Admission date</span><p className="font-semibold text-slate-800">{mentor.createdAt ? new Date(mentor.createdAt).toLocaleDateString() : 'Not provided'}</p></div>
                           </section>
@@ -1306,7 +1312,7 @@ export function CohortDetail() {
               <option value="ALL">All mentors</option>
               <option value="UNASSIGNED">Unassigned trainees</option>
               {assignmentMentors.map((mentor) => (
-                <option key={mentor.id} value={mentor.id}>{mentor.name}{mentor.isLoginActive && !mentor.isAccountActive ? ' · Globally deactivated' : mentor.isCohortAccessActive === false ? ' · Cohort access deactivated' : ''}</option>
+                <option key={mentor.id} value={mentor.id}>{mentor.name}{mentor.isActive === false || mentor.isAccountActive === false ? ' · Globally deactivated' : mentor.isCohortAccessActive === false ? ' · Cohort access deactivated' : ''}</option>
               ))}
             </select>
           </div>
@@ -1328,10 +1334,18 @@ export function CohortDetail() {
               const cohortMentors = assignmentMentors;
               const assignedMentor = cohortMentors.find((mentor) => mentor.id === currentMentorId);
               const assignedMentorIsDeactivated = Boolean(
-                assignedMentor?.isLoginActive && (!assignedMentor?.isAccountActive || assignedMentor?.isCohortAccessActive === false)
+                assignedMentor && (
+                  assignedMentor.isActive === false
+                  || assignedMentor.isAccountActive === false
+                  || assignedMentor.isCohortAccessActive === false
+                )
               );
               const assignableMentors = cohortMentors.filter((mentor) =>
-                mentor.id === currentMentorId || (!(mentor.isLoginActive && !mentor.isAccountActive) && mentor.isCohortAccessActive !== false)
+                mentor.id === currentMentorId || (
+                  mentor.isActive !== false
+                  && mentor.isAccountActive !== false
+                  && mentor.isCohortAccessActive !== false
+                )
               );
 
               return (
@@ -1365,7 +1379,7 @@ export function CohortDetail() {
                           </option>
                         )}
                         {assignableMentors.filter((mentor) => mentor.id === currentMentorId || mentorOptionsForAssignment.some((option) => option.id === mentor.id)).map((m) => (
-                          <option key={m.id} value={m.id} disabled={m.id !== currentMentorId && ((!m.isAccountActive && m.isLoginActive) || m.isCohortAccessActive === false)}>
+                          <option key={m.id} value={m.id} disabled={m.id !== currentMentorId && (m.isActive === false || m.isAccountActive === false || m.isCohortAccessActive === false)}>
                             {m.name} ({m.employeeId || 'EMP'}) · {m.assignedTraineesCount} trainees
                           </option>
                         ))}
@@ -1514,19 +1528,17 @@ export function CohortDetail() {
                       <td className="px-4 py-3 text-slate-700">{nominator.employeeId || '—'}</td>
                       <td className="px-4 py-3">
                         <span className={`text-xs font-semibold ${!nominator.isActive ? 'text-rose-700' : nominator.firstLoginPasswordReset ? 'text-amber-700' : 'text-emerald-700'}`}>
-                          {!nominator.isActive ? 'Inactive' : nominator.firstLoginPasswordReset ? 'Password setup pending' : 'Active'}
+                          {!nominator.isActive ? 'Deactivated' : nominator.firstLoginPasswordReset ? 'Password setup pending' : 'Active'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <button
                           type="button"
-                          role="switch"
-                          aria-checked={nominator.isActive}
                           aria-label={`${nominator.isActive ? 'Deactivate' : 'Activate'} ${nominator.name}`}
                           onClick={() => toggleNominatorMutation.mutate({ userId: nominator.id, isActive: !nominator.isActive })}
                           disabled={toggleNominatorMutation.isPending}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors disabled:cursor-wait disabled:opacity-50 ${nominator.isActive ? 'bg-emerald-600' : 'bg-slate-300'}`}
-                        ><span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${nominator.isActive ? 'translate-x-6' : 'translate-x-1'}`} /></button>
+                          className={`rounded-lg px-3 py-1.5 text-xs font-bold transition-colors disabled:cursor-wait disabled:opacity-50 ${nominator.isActive ? 'bg-rose-50 text-rose-700 hover:bg-rose-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}
+                        >{nominator.isActive ? 'Deactivate' : 'Activate'}</button>
                       </td>
                       <td className="px-4 py-3 text-right"><button type="button" onClick={() => setSelectedNominatorDetails(nominator)} className="font-semibold text-emerald-700 hover:text-emerald-900">View nominees →</button></td>
                     </tr>
@@ -1549,7 +1561,7 @@ export function CohortDetail() {
             <div className="grid gap-3 rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm sm:grid-cols-3">
               <div><span className="text-slate-500">Employee ID</span><p className="font-semibold text-slate-800">{selectedNominatorDetails.employeeId || '—'}</p></div>
               <div><span className="text-slate-500">Email</span><p className="font-semibold text-slate-800">{selectedNominatorDetails.email}</p></div>
-              <div><span className="text-slate-500">Account</span><p className="font-semibold text-slate-800">{!selectedNominatorDetails.isActive ? 'Inactive' : selectedNominatorDetails.firstLoginPasswordReset ? 'Password setup pending' : 'Active'}</p></div>
+              <div><span className="text-slate-500">Account</span><p className="font-semibold text-slate-800">{!selectedNominatorDetails.isActive ? 'Deactivated' : selectedNominatorDetails.firstLoginPasswordReset ? 'Password setup pending' : 'Active'}</p></div>
             </div>
 
             {nominatorSubmissionsLoading ? <p className="text-sm text-slate-500">Loading nominations…</p> : (

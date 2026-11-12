@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CalendarDays, Clock3, MapPin, Video, Users, ChevronDown } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock3, MapPin, Video, Users, ChevronDown } from 'lucide-react';
 import api from '../../api/client';
 import { Modal } from '../../components/Modal';
 import { DataTable, PersonCell } from '../../components/DataTable';
 import { useToast } from '../../context/ToastContext';
+import { requireArrayResponse, unwrapArrayResponse } from '../../utils/arrayResponse';
 
 const statusStyles = {
   scheduled: 'bg-blue-50 text-blue-700 border-blue-200',
@@ -36,9 +37,10 @@ function formatDateShort(value) {
 export default function SessionHistory() {
   const [params, setParams] = useSearchParams();
   const cohortId = params.get('cohortId');
-  const { data: cohorts = [] } = useQuery({
-    queryKey: ['mentorCohorts'], queryFn: async () => (await api.get('/mentor/cohorts')).data || [],
+  const { data: cohortResponse = [] } = useQuery({
+    queryKey: ['mentorCohorts'], queryFn: async () => requireArrayResponse((await api.get('/mentor/cohorts')).data, 'cohorts'),
   });
+  const cohorts = unwrapArrayResponse(cohortResponse, 'cohorts') || [];
   const selectedCohort = cohorts.find((cohort) => cohort.id === cohortId);
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -50,7 +52,7 @@ export default function SessionHistory() {
     queryKey: ['mentorSessionHistory', cohortId],
     queryFn: async () => {
       const response = await api.get('/sessions/', { params: { limit: 100, ...(cohortId ? { cohort_id: cohortId } : {}) } });
-      return response.data || [];
+      return requireArrayResponse(response.data, 'sessions');
     },
   });
 
@@ -106,6 +108,12 @@ export default function SessionHistory() {
     <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
 
       {/* ── Page header ── */}
+      <Link
+        to={cohortId ? `/mentor/dashboard?cohortId=${encodeURIComponent(cohortId)}` : '/mentor/dashboard'}
+        className="mb-1 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900"
+      >
+        <ArrowLeft className="h-4 w-4" /> Back to trainees
+      </Link>
       <div className="flex items-center justify-between py-2 border-b border-slate-200 mb-0">
         <div><span className="text-xs font-bold uppercase tracking-wider text-slate-500">Session History</span>{selectedCohort && <p className="mt-0.5 text-xs text-slate-400">{selectedCohort.name}</p>}</div>
         <p className="text-[11px] text-slate-400">Review scheduled and completed sessions across your batches.</p>

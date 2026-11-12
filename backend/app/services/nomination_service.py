@@ -440,13 +440,17 @@ class NominationService:
                         {"firstLoginPasswordReset": 1, "isActive": 1},
                     )
                     doc["firstLoginPasswordReset"] = bool(mentor_user and mentor_user.get("firstLoginPasswordReset", False))
-                    doc["isAccountActive"] = bool(mentor_user and mentor_user.get("isActive", True))
+                    doc["isAccountActive"] = bool(
+                        doc.get("isActive", True)
+                        and mentor_user
+                        and mentor_user.get("isActive", True)
+                    )
                 except Exception:
                     doc["firstLoginPasswordReset"] = False
                     doc["isAccountActive"] = False
             else:
                 doc["firstLoginPasswordReset"] = False
-                doc["isAccountActive"] = doc.get("isActive", True)
+                doc["isAccountActive"] = bool(doc.get("isActive", True))
             
             # Fetch assigned trainees for this mentor
             trainees_cursor = db.trainees.find({"mentorId": mentor_id, "cohortId": cohort_id}).sort("name", 1)

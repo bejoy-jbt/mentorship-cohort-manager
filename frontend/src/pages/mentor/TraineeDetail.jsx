@@ -458,7 +458,22 @@ export function TraineeDetail() {
               <p className="text-xs text-slate-500">Track course completion and jump to weekly reviews</p>
             </div>
             {plan && (
-              <Badge variant="primary">{totalWeeksCount} Weeks Curriculum</Badge>
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <span>Week</span>
+                <select
+                  value={selectedWeek}
+                  onChange={(event) => setSelectedWeek(Number(event.target.value))}
+                  className="min-w-40 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                  aria-label="Select training plan week"
+                >
+                  {plan.weeks?.map((week) => (
+                    <option key={week.weekNumber} value={week.weekNumber}>
+                      Week {week.weekNumber}{week.isBuffer ? ' (Buffer)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <span className="sr-only">of {totalWeeksCount} weeks</span>
+              </label>
             )}
           </div>
 
@@ -469,7 +484,7 @@ export function TraineeDetail() {
             />
           ) : (
             <div className="divide-y divide-slate-200 border-y border-slate-200">
-              {plan.weeks?.map((week) => {
+              {plan.weeks?.filter((week) => Number(week.weekNumber) === Number(selectedWeek)).map((week) => {
                 const weekCourses = week.courses || [];
                 const isBufferOnly = (week.isBuffer || weekCourses.length === 0) && weekCourses.length === 0;
                 const allWeekComplete = weekCourses.length > 0 && weekCourses.every((c) => progressMap[c.courseId]);
